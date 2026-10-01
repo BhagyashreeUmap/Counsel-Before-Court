@@ -243,15 +243,21 @@ class ResearchAgentTests(unittest.TestCase):
                        "Never", "not legal advice"):
             self.assertIn(phrase, instruction)
 
-    def test_smoke_import_does_not_run_and_mocked_main_calls_once(self):
+    def test_smoke_import_does_not_run_and_mocked_main_calls_once_per_scenario(self):
         from scripts import smoke_research_agent
         self.ask.assert_not_called()
         with patch.object(smoke_research_agent, "research_agent", return_value=self.ranked) as research, \
                 patch.object(smoke_research_agent, "get_case", return_value=candidate("C003")), \
                 patch("builtins.print"):
             self.assertEqual(smoke_research_agent.main(), 0)
-            research.assert_called_once()
-            self.assertIn("prepare", research.call_args.args[0]["citizen_goal"])
+            self.assertEqual(research.call_count, 2)
+            english = research.call_args_list[0].args[0]
+            marathi = research.call_args_list[1].args[0]
+            self.assertIn("prepare", english["citizen_goal"])
+            self.assertEqual(english["language"], "en")
+            self.assertEqual(marathi["language"], "mr")
+            self.assertTrue(marathi["citizen_goal"].strip())
+            self.assertIsNot(english, marathi)
 
 
 if __name__ == "__main__":
