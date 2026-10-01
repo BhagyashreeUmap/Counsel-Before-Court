@@ -2,6 +2,8 @@
 
 from copy import deepcopy
 from functools import lru_cache
+import json
+from pathlib import Path
 from typing import Any
 
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -95,3 +97,69 @@ def search_cases(query: str, k: int = 3) -> list[dict[str, Any]]:
         result["similarity_score"] = float(scores[index])
         results.append(result)
     return results
+
+
+class ReferralDataError(ValueError):
+    """Local fictional directory could not be read safely."""
+
+
+def _directory_text(value):
+    return " ".join(value.split()).casefold() if isinstance(value, str) else ""
+
+
+def _load_referral_directory(filename):
+    """Read fresh local synthetic records; no caches or external lookups."""
+    path = Path(__file__).resolve().parent.parent / "data" / filename
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return []
+    except OSError:
+        raise ReferralDataError("Could not read the local synthetic referral directory.") from None
+    if not text.strip():
+        return []
+    try:
+        records = json.loads(text)
+        if not isinstance(records, list):
+            raise ValueError()
+        seen = set()
+        for record in records:
+            if (not isinstance(record, dict) or record.get("source") != "synthetic"
+                    or not all(isinstance(record.get(field), str) and record[field].strip()
+                               for field in ("id", "name", "city"))
+                    or record["id"] in seen
+                    or not isinstance(record.get("languages"), list)
+                    or not all(isinstance(item, str) and item.strip() for item in record["languages"])):
+                raise ValueError()
+            if filename == "lawyers.json" and (
+                    not isinstance(record.get("specializations"), list)
+                    or not all(isinstance(item, str) and item.strip() for item in record["specializations"])):
+                raise ValueError()
+            seen.add(record["id"])
+    except (ValueError, TypeError):
+        raise ReferralDataError("Invalid local synthetic referral directory.") from None
+    return records
+
+
+def find_lawyers(specialization, city, language):
+    """Exact normalized lookup in fictional memory; all three inputs required.
+
+    Languages use listed codes (en/hi/mr), with no inferred translations.
+    These records are demo identities, not real referrals or contact services.
+    """
+    specialization, city, language = map(_directory_text, (specialization, city, language))
+    if not specialization or not city or not language:
+        return []
+    return [deepcopy(record) for record in _load_referral_directory("lawyers.json")
+            if _directory_text(record["city"]) == city
+            and specialization in {_directory_text(item) for item in record["specializations"]}
+            and language in {_directory_text(item) for item in record["languages"]}]
+
+
+def find_legal_aid(city):
+    """Fictional providers for an explicitly supplied city; no eligibility claim."""
+    city = _directory_text(city)
+    if not city:
+        return []
+    return [deepcopy(record) for record in _load_referral_directory("legal_aid.json")
+            if _directory_text(record["city"]) == city]

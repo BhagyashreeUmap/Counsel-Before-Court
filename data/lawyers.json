@@ -1,0 +1,6 @@
+[
+  {"id":"DEMO-L001","name":"Fictional Demo Lawyer Alpha","specializations":["property/land"],"city":"Pune","languages":["en","hi","mr"],"email":"alpha@example.invalid","contact_note":"Demo only; no telephone or booking service","source":"synthetic"},
+  {"id":"DEMO-L002","name":"Fictional Demo Lawyer Beta","specializations":["property/land"],"city":"Mumbai","languages":["en","mr"],"email":"beta@example.invalid","contact_note":"Demo only; no telephone or booking service","source":"synthetic"},
+  {"id":"DEMO-L003","name":"Fictional Demo Lawyer Gamma","specializations":["property/land"],"city":"Delhi","languages":["en","hi"],"email":"gamma@example.invalid","contact_note":"Demo only; no telephone or booking service","source":"synthetic"},
+  {"id":"DEMO-L004","name":"Fictional Demo Lawyer Delta","specializations":["family"],"city":"Pune","languages":["en","hi"],"email":"delta@example.invalid","contact_note":"Demo only; no telephone or booking service","source":"synthetic"}
+]

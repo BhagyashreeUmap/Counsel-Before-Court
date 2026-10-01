@@ -1,0 +1,5 @@
+[
+  {"id":"DEMO-A001","name":"Fictional Demo Aid Desk Alpha","city":"Pune","languages":["en","hi","mr"],"email":"aid-alpha@example.invalid","eligibility_note":"No eligibility assessment; fictional demo entry only","source":"synthetic"},
+  {"id":"DEMO-A002","name":"Fictional Demo Aid Desk Beta","city":"Mumbai","languages":["en","mr"],"email":"aid-beta@example.invalid","eligibility_note":"No eligibility assessment; fictional demo entry only","source":"synthetic"},
+  {"id":"DEMO-A003","name":"Fictional Demo Aid Desk Gamma","city":"Delhi","languages":["en","hi"],"email":"aid-gamma@example.invalid","eligibility_note":"No eligibility assessment; fictional demo entry only","source":"synthetic"}
+]
