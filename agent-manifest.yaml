@@ -1,0 +1,36 @@
+apiVersion: aikart.dev/v1
+kind: AgentManifest
+
+metadata:
+  name: counsel-before-court
+  displayName: "Counsel Before Court"
+  description: "Agentic AI for citizen legal information and case preparation before meeting a lawyer."
+
+runtime:
+  type: docker
+  image: docker.io/umapbhagyashree/counsel-before-court:1.0
+
+resources:
+  cpu: 1
+  memoryMb: 2048
+  timeoutSeconds: 120
+
+inputs:
+  - name: case_description
+    type: textarea
+    label: "Describe your legal issue"
+    required: true
+
+  - name: language
+    type: select
+    label: "Language"
+    required: true
+    options:
+      - English
+      - Marathi
+
+output:
+  format: markdown
+
+security:
+  networkEgress: none
