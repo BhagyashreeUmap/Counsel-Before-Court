@@ -781,8 +781,79 @@ explanation, adding no facts; copy the ID exactly. Python controls IDs/source.
 Do not translate canonical evidence labels or referral records. Python owns
 localized disclaimers and the time/cost wrapper; original observed facts remain
 authoritative across languages.
-Return only the requested narrative JSON fields.
-"""
+
+CASE PREPARATION DEPTH: do not stop at informal discussion or 'consult a lawyer'.
+Situation summary should distinguish people, disputed land/matter, competing
+claim, current status, timeline and the citizen's explicitly stated goal.
+Use authoritative_case_records_data to explain EVERY cited case: ID, why it
+is similar, which recorded documents/key factors/actions mattered. Actions in
+a stored case are historical examples, NOT instructions or established legal
+procedures. Python separately supplies recorded outcomes/time/cost; do not
+invent them or repeat estimates in narrative fields.
+Options must form an ordered preparation sequence: preserve existing relevant
+records and a factual timeline; gather/verify only grounded evidence labels;
+compare records against the actual disputed claim; then prepare focused issues
+for professional review. Explain each step's purpose and practical limitation.
+Where measurement, demarcation or record correction is relevant in supplied
+records, ASK a professional whether it is appropriate, never prescribe an
+authority, application, process or legal entitlement. Do not introduce such a
+step when it has no supplied factual support.
+Explain missing evidence and WHY it may help clarify the actual dispute using
+Gap evidence/questions and Analyst patterns/risks. 'Not confirmed' is not
+'unavailable'; citizen mentions are not independent verification of possession.
+Questions must name the actual disputed issue or grounded missing evidence,
+not just ask 'what should I do?'. Lawyer-ready summary should cover facts,
+claim, goal, available/mentioned and unconfirmed documents, cited examples,
+and specific consultation questions. Follow grounded_checklist_data exactly;
+raw answers cannot override it. No generic checklist or mandatory documents.
+Return only the requested narrative JSON fields."""
+"""CASE PREPARATION DEPTH REQUIREMENTS:
+
+Your main job is to turn the grounded case information into useful PREPARATION for a professional legal consultation. Do not stop at generic statements such as "consult a lawyer", "seek legal help", or "discuss the matter". Those may appear only alongside concrete preparation.
+
+DOCUMENT PREPARATION:
+Use grounded_checklist_data, final_case_data, final_analysis_data and gap_data to clearly distinguish:
+1. documents/evidence the citizen has confirmed as available;
+2. documents/evidence confirmed unavailable;
+3. documents/evidence not yet mentioned, uncertain, or worth verifying.
+Never change a document's availability status. Never call something legally mandatory unless the supplied data establishes that.
+
+OPTIONS / PREPARATION STEPS:
+Produce specific, ordered preparation actions that are supported by the supplied case facts and evidence. Focus on actions such as preserving existing evidence, organizing available records, obtaining or verifying relevant records, comparing conflicting records, documenting the disputed situation, and preparing material for professional review when supported by the supplied data.
+
+If a procedural or legal action is not established by the supplied data, phrase it as a question or option to DISCUSS with a lawyer or legal-aid professional rather than as an instruction.
+
+Every option should explain:
+- what the citizen can prepare or discuss;
+- why it may be useful based on this case;
+- an important limitation, uncertainty, or tradeoff where relevant.
+
+SIMILAR CASES:
+For each allowed cited case, explain WHY it is similar to the citizen's situation. Where the authoritative supplied case record contains relevant evidence, action, outcome, time, or cost information, explain that grounded information briefly. Never imply that a past case predicts this citizen's result. Synthetic records must remain clearly described as synthetic sample cases.
+
+RED FLAGS / MISSING INFORMATION:
+Do not merely list missing evidence. Briefly explain why each missing or uncertain item may matter to case preparation, using only supplied information.
+
+QUESTIONS FOR LAWYER:
+Generate specific questions derived from this citizen's actual dispute, available evidence, missing evidence, uncertainties, and retrieved cases. Avoid generic questions such as "What should I do?" when a more case-specific question can be produced.
+
+LAWYER-READY SUMMARY:
+Create a useful consultation handoff containing:
+- the core facts and dispute;
+- the citizen's stated goal;
+- important evidence/documents confirmed available;
+- important evidence/documents unavailable or uncertain;
+- relevant similar cases used;
+- unresolved issues or questions to discuss with the professional.
+
+The citizen should finish Guidance knowing:
+WHAT they already have,
+WHAT they may need to gather or verify,
+WHAT issues they can discuss with a professional,
+WHY those issues matter,
+and WHAT specific questions they can take into the consultation.
+
+Remain within legal information and case preparation. Do not invent laws, statutory rights, deadlines, mandatory forms, government procedures, authorities, legal conclusions, or guaranteed remedies."""
 
 # Focused obvious-output checks, not a comprehensive legal policy engine.
 GUIDANCE_UNSAFE_PATTERNS = (
@@ -822,7 +893,7 @@ def _guidance_inputs(case_file, research_result, final_analysis, gap_result, gap
         raise GuidanceAgentError("Guidance requires a complete final Analyst result.")
     if not isinstance(research_result, dict) or not isinstance(research_result.get("matches"), list):
         raise GuidanceAgentError("Guidance requires a Research matches list.")
-    citations, seen = [], set()
+    citations, records, seen = [], [], set()
     for match in research_result["matches"]:
         if (not isinstance(match, dict) or not isinstance(match.get("id"), str) or not match["id"].strip()
                 or not isinstance(match.get("why_similar"), str)):
@@ -836,6 +907,9 @@ def _guidance_inputs(case_file, research_result, final_analysis, gap_result, gap
             if not record or record.get("source") not in ("synthetic", "user_contributed_anonymized"):
                 raise GuidanceAgentError("Guidance referenced an unavailable memory case.")
             citations.append({"id": case_id, "why_similar": match["why_similar"], "source": record["source"]})
+            records.append({key: deepcopy(record[key]) for key in (
+                "id", "source", "title", "story_summary", "documents_citizen_had",
+                "options_tried", "key_factors", "outcome", "time_taken_months", "cost_level") if key in record})
             seen.add(case_id)
     if (not isinstance(gap_result, dict)
             or not all(isinstance(gap_result.get(field), list)
@@ -850,7 +924,7 @@ def _guidance_inputs(case_file, research_result, final_analysis, gap_result, gap
         raise GuidanceAgentError("Guidance requires question/answer objects containing nonempty strings.")
     if any(item["question"] not in gap_result["questions"] for item in gap_answers):
         raise GuidanceAgentError("Guidance received an answer without a corresponding Gap question.")
-    return state, citations
+    return state, citations, records
 
 
 def _guidance_checklist(state, analysis):
@@ -902,13 +976,66 @@ def _guidance_localized_citations(citations, narrative, language):
     return [{**item, "why_similar": translations[item["id"]]} for item in citations]
 
 
+def _guidance_land_preparation(state, checklist, citations, records, narrative, language):
+    """Grounded preparation floor and consultation handoff; no answer parsing."""
+    def words(en, mr, hi):
+        return {"mr": mr, "hi": hi}.get(language, en)
+
+    mentioned = [item["item"] for item in checklist if item["status"] == "mentioned"]
+    unconfirmed = [item["item"] for item in checklist if item["status"] == "check_if_available"]
+    labels = "; ".join(item["item"] for item in checklist)
+    steps = [
+        words("Prepare a factual timeline of the reported dispute and preserve copies of relevant records already available; distinguish what you observed from what the other side claims.",
+              "सांगितलेल्या वादाची तथ्याधारित घटनाक्रम नोंद तयार करा आणि उपलब्ध संबंधित नोंदींच्या प्रती जतन करा; तुमची निरीक्षणे आणि दुसऱ्या बाजूचे दावे वेगळे नोंदवा.",
+              "बताए गए विवाद का तथ्यात्मक घटनाक्रम तैयार करें और उपलब्ध संबंधित रिकॉर्ड की प्रतियां सुरक्षित रखें; अपने अवलोकन और दूसरे पक्ष के दावे अलग रखें."),
+        words("Review the document list below: keep citizen-mentioned items separate from items whose availability still needs confirmation. Compare relevant entries, dates and descriptions; note discrepancies without deciding legal ownership.",
+              "खालील कागदपत्रांची यादी तपासा: नागरिकाने सांगितलेली कागदपत्रे आणि उपलब्धतेची पुष्टी आवश्यक असलेली कागदपत्रे वेगळी ठेवा. संबंधित नोंदी, तारखा आणि वर्णने तुलना करा; कायदेशीर मालकी ठरवल्याशिवाय विसंगती नोंदवा.",
+              "नीचे दी गई दस्तावेज सूची देखें: नागरिक द्वारा बताए दस्तावेज और उपलब्धता की पुष्टि वाले दस्तावेज अलग रखें. संबंधित प्रविष्टियों, तारीखों और विवरणों की तुलना करें; कानूनी स्वामित्व तय किए बिना अंतर लिखें."),
+        words("Take the factual timeline, available records and unresolved evidence questions to a lawyer or legal-aid professional; ask which records clarify the competing claim and which further verification is appropriate.",
+              "घटनाक्रम, उपलब्ध नोंदी आणि पुराव्यांबाबत अनुत्तरित प्रश्न वकील किंवा कायदेशीर मदत तज्ज्ञाकडे घेऊन जा; कोणत्या नोंदींमुळे विरोधी दावा स्पष्ट होईल आणि आणखी कोणती पडताळणी योग्य आहे हे विचारा.",
+              "घटनाक्रम, उपलब्ध रिकॉर्ड और अनसुलझे प्रमाण संबंधी प्रश्न वकील या कानूनी सहायता पेशेवर के पास ले जाएं; पूछें कौन से रिकॉर्ड विरोधी दावा स्पष्ट करते हैं और आगे कौन सा सत्यापन उचित है.")]
+    if labels:
+        steps[1] += " " + labels
+    benefit = words("Organizes the supplied facts and evidence for informed professional discussion; it does not establish legal rights.", "पुरवलेल्या तथ्यांची आणि पुराव्यांची तज्ज्ञांशी चर्चेसाठी मांडणी होते; यामुळे कायदेशीर हक्क निश्चित होत नाहीत.", "दिए गए तथ्य और प्रमाण पेशेवर चर्चा के लिए व्यवस्थित होते हैं; इससे कानूनी अधिकार स्थापित नहीं होते.")
+    tradeoff = words("Availability, accuracy and legal significance still need confirmation; missing records may limit comparison.", "उपलब्धता, अचूकता आणि कायदेशीर महत्त्वाची पुष्टी आवश्यक आहे; न मिळालेल्या नोंदींमुळे तुलना मर्यादित राहू शकते.", "उपलब्धता, सटीकता और कानूनी महत्व की पुष्टि जरूरी है; अनुपलब्ध रिकॉर्ड तुलना सीमित कर सकते हैं.")
+    options = [{"option": step, "possible_benefit": benefit, "possible_tradeoff": tradeoff} for step in steps]
+    questions = []
+    if labels:
+        questions.append(words("How do these records help clarify the reported competing claim, and what discrepancies should we examine: ", "सांगितलेला विरोधी दावा स्पष्ट करण्यासाठी या नोंदी कशा उपयुक्त आहेत आणि कोणत्या विसंगती तपासाव्यात: ", "बताए गए विरोधी दावे को स्पष्ट करने में ये रिकॉर्ड कैसे उपयोगी हैं और किन अंतरों की जांच करें: ") + labels + "?")
+    if unconfirmed:
+        questions.append(words("Which of these unconfirmed records would help preparation, and how can their availability or accuracy be verified without assuming they exist: ", "तयारीसाठी यापैकी कोणत्या अपुष्ट नोंदी उपयुक्त आहेत आणि त्या अस्तित्वात आहेत असे गृहीत न धरता उपलब्धता किंवा अचूकता कशी तपासावी: ", "इन अपुष्ट रिकॉर्ड में कौन तैयारी में सहायक हैं और उनके अस्तित्व का अनुमान लगाए बिना उपलब्धता या सटीकता कैसे जांचें: ") + "; ".join(unconfirmed) + "?")
+    measurement_supported = any("measurement" in text.casefold() for record in records
+        for text in record.get("key_factors", []) + record.get("options_tried", []))
+    if measurement_supported:
+        questions.append(words("A retrieved example involved land measurement. Is official measurement or demarcation appropriate for this reported dispute, and what records would you review first?", "मिळालेल्या नमुना प्रकरणात जमिनीची मोजणी होती. या सांगितलेल्या वादासाठी अधिकृत मोजणी किंवा सीमांकन योग्य आहे का आणि आधी कोणत्या नोंदी तपासाल?", "एक प्राप्त नमूना मामले में भूमि मापन हुआ था. क्या इस बताए गए विवाद में आधिकारिक मापन या सीमांकन उचित है और पहले कौन से रिकॉर्ड देखेंगे?"))
+    questions = (questions + narrative["questions_for_lawyer"])[:5]
+    # No generated document assertions enter this handoff. All documentary
+    # truth comes from the same checklist returned to the application.
+    sections = [narrative["situation_summary"]]
+    for field in ("parties_and_relationship", "property_or_matter_details", "timeline", "other_side_claim", "current_status", "citizen_goal"):
+        value = state[field]
+        if value:
+            try:
+                _guidance_check_text(value, {item["id"] for item in citations})
+            except GuidanceAgentError:
+                continue  # Unsafe raw assertions remain input data, not output claims.
+            sections.append(f"{field}: {value}")
+    sections += [words("Citizen-mentioned/confirmed documents (not independently verified): ", "नागरिकाने सांगितलेली/पुष्टी केलेली कागदपत्रे (स्वतंत्र पडताळणी नाही): ", "नागरिक द्वारा बताए/पुष्टि किए दस्तावेज (स्वतंत्र सत्यापन नहीं): ") + ("; ".join(mentioned) or "—"),
+                 words("Still to gather or verify / availability not confirmed: ", "मिळवायची किंवा तपासायची / उपलब्धतेची पुष्टी नाही: ", "जुटाने या जांचने के लिए / उपलब्धता की पुष्टि नहीं: ") + ("; ".join(unconfirmed) or "—")]
+    for record, citation in zip(records, citations):
+        sections.append(f"{citation['id']} ({citation['source']}; not precedent/prediction): {citation['why_similar']}")
+        sections.append(json.dumps({key: record[key] for key in ("documents_citizen_had", "options_tried", "key_factors", "outcome", "time_taken_months", "cost_level") if key in record}, ensure_ascii=False))
+    sections.append(words("Questions/issues to discuss: ", "चर्चेसाठी प्रश्न/मुद्दे: ", "चर्चा के प्रश्न/मुद्दे: ") + "\n" + "\n".join(questions))
+    return options + narrative["options"][:2], questions, "\n\n".join(sections)
+
+
 def guidance_agent(case_file, research_result, final_analysis, gap_result, gap_answers):
     """One-shot citizen narrative; Python owns hard facts and no data is sent.
 
     Referrals come only from local fictional tools using explicit structured
     city/language and the small land_dispute -> property/land mapping.
     """
-    state, citations = _guidance_inputs(case_file, research_result, final_analysis, gap_result, gap_answers)
+    state, citations, records = _guidance_inputs(case_file, research_result, final_analysis, gap_result, gap_answers)
     allowed_ids = {item["id"] for item in citations}
     checklist = _guidance_checklist(state, final_analysis)
     referrals = _guidance_referrals(case_file)
@@ -917,6 +1044,7 @@ def guidance_agent(case_file, research_result, final_analysis, gap_result, gap_a
         instruction = GUIDANCE_INSTRUCTION + ("\nSome citations are user_contributed_anonymized: reported experiences, NOT synthetic samples. Respect per-record source; none are verified law or predictions.\n" if user_memory_present else "")
         response = llm.ask_llm_json(instruction, json.dumps({
             "final_case_data": state, "research_data": citations,
+            "authoritative_case_records_data": records,
             "final_analysis_data": deepcopy(final_analysis), "gap_data": deepcopy(gap_result),
             "raw_gap_answers_data": deepcopy(gap_answers), "grounded_checklist_data": checklist,
             "referral_data": referrals, "language_preference": state["language"] or "other",
@@ -935,6 +1063,9 @@ def guidance_agent(case_file, research_result, final_analysis, gap_result, gap_a
     _guidance_check_text(json.dumps(checklist, ensure_ascii=False), allowed_ids)
     language = state["language"].strip().casefold()
     citations = _guidance_localized_citations(citations, narrative, language)
+    if state["legal_area"] == "land_dispute":
+        narrative["options"], narrative["questions_for_lawyer"], narrative["lawyer_ready_summary"] = _guidance_land_preparation(
+            state, checklist, citations, records, narrative, language)
     if citations:
         wrapper = {
             "mr": "ही मिळालेल्या कृत्रिम नमुना प्रकरणांतील निरीक्षणे आहेत; तुमच्या परिस्थितीच्या परिणामांचे भाकीत नाही. मूळ नोंदवलेली वेळ आणि खर्चाची माहिती: ",

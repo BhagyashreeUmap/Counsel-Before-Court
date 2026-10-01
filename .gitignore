@@ -2,4 +2,6 @@ venv/
 .env
 __pycache__/
 *.pyc
-.streamlit/
+.streamlit/*
+!.streamlit/config.toml
+data/private_history.db
