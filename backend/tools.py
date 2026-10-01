@@ -9,7 +9,7 @@ from typing import Any
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from backend.database import load_cases
+from backend.database import load_cases, load_user_memory, save_user_memory
 
 RETRIEVAL_NOTICE = (
     "Synthetic demonstration example only; not a real judgment, legal precedent, "
@@ -34,7 +34,7 @@ def _as_text(value: Any) -> str:
 
 @lru_cache(maxsize=1)
 def _cases() -> list[dict[str, Any]]:
-    return load_cases()
+    return load_cases() + load_user_memory()
 
 
 @lru_cache(maxsize=1)
@@ -55,6 +55,8 @@ def _search_index():
 def _result(case: dict[str, Any]) -> dict[str, Any]:
     result = deepcopy(case)
     result["retrieval_notice"] = RETRIEVAL_NOTICE
+    if case.get("source") == "user_contributed_anonymized":
+        result["retrieval_notice"] = "User-reported anonymized experience, not verified law, precedent or an outcome prediction."
     return result
 
 
@@ -97,6 +99,15 @@ def search_cases(query: str, k: int = 3) -> list[dict[str, Any]]:
         result["similarity_score"] = float(scores[index])
         results.append(result)
     return results
+
+
+def save_case(record):
+    """Persist a validated exact user-memory preview; clear both corpus caches."""
+    saved, changed = save_user_memory(record)
+    if changed:
+        _cases.cache_clear()
+        _search_index.cache_clear()
+    return deepcopy(saved)
 
 
 class ReferralDataError(ValueError):

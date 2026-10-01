@@ -1,10 +1,58 @@
 """Read synthetic demonstration cases; these are not judgments or precedent."""
 
 import json
+import os
+import tempfile
+from threading import RLock
 from pathlib import Path
 from typing import Any
 
 CASES_PATH = Path(__file__).resolve().parent.parent / "data" / "cases.json"
+USER_MEMORY_PATH = CASES_PATH.with_name("user_memory.json")
+_MEMORY_LOCK = RLock()
+
+
+def load_user_memory():
+    from backend.memory import MemoryAgentError, validate_memory_record
+    try:
+        if not USER_MEMORY_PATH.exists():
+            return []
+        records = json.loads(USER_MEMORY_PATH.read_text(encoding="utf-8"))
+        if not isinstance(records, list):
+            raise ValueError()
+        validated = [validate_memory_record(record) for record in records]
+        if len({record["id"] for record in validated}) != len(validated):
+            raise ValueError()
+        return validated
+    except Exception:
+        raise MemoryAgentError("Stored user memory is invalid or unreadable; nothing was overwritten.") from None
+
+
+def save_user_memory(record):
+    from backend.memory import MemoryAgentError, validate_memory_record
+    record = validate_memory_record(record)
+    with _MEMORY_LOCK:
+        records = load_user_memory()
+        for existing in records:
+            if existing["id"] == record["id"]:
+                if existing == record:
+                    return record, False
+                raise MemoryAgentError("Memory ID collision; prepare a new preview.")
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=USER_MEMORY_PATH.parent,
+                                             delete=False, suffix=".tmp") as file:
+                temporary = Path(file.name)
+                json.dump(records + [record], file, ensure_ascii=False, indent=2)
+                file.flush()
+                os.fsync(file.fileno())
+            os.replace(temporary, USER_MEMORY_PATH)
+        except Exception:
+            raise MemoryAgentError("Memory write failed; previous memory was preserved.") from None
+        finally:
+            if temporary is not None and temporary.exists():
+                temporary.unlink()
+        return record, True
 
 
 class CaseDataError(ValueError):
